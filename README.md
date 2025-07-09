@@ -101,3 +101,55 @@ the command should be formatted as
 From here, the application will wait until the time specified by
 `expected_drop_hour` and `expected_drop_minute` to begin searching
 for available timeslots.
+
+#### Performance Optimizations
+
+The bot now includes several performance optimizations to make it faster and more competitive:
+
+##### Async Mode (Recommended)
+
+For potentially better performance, use the async mode:
+
+```bash
+poetry run python main.py <path/to/credentials.json> <path/to/reservation/request.json> --async-mode
+```
+
+##### Performance Testing
+
+To determine which mode works best for your setup, run the performance tester:
+
+```bash
+poetry run python performance_test.py <path/to/credentials.json> <path/to/reservation/request.json>
+```
+
+This will test both sync and async modes and provide recommendations.
+
+#### Key Optimizations Made
+
+1. **Reduced Parsing Overhead**: Removed expensive Pydantic validation during time-critical operations
+2. **Better Error Handling**: The bot now properly handles empty slots and retries automatically
+3. **HTTP Connection Optimization**: Added connection pooling and keep-alive headers
+4. **Faster Retry Logic**: Reduced retry delays from 0.05s to 0.01s and increased retry count to 50
+5. **Pre-built Requests**: Payment method and other data is prepared ahead of time
+6. **Async Support**: Added aiohttp-based async mode for potentially faster performance
+
+#### Troubleshooting "IndexError: list index out of range"
+
+If you're getting this error, it means the bot is finding no available slots when it tries to book. This happens when:
+
+1. The bot is too slow compared to other users/bots
+2. All slots are taken before your bot can book them
+3. The restaurant isn't releasing slots at the expected time
+
+**Solutions:**
+- Use the `--async-mode` flag for better performance
+- Run the bot from a server with low latency to Resy's servers
+- Test your setup with the performance tester
+- Consider running multiple instances with slight time offsets
+
+#### Additional Performance Tips
+
+1. **Use a fast internet connection** - Latency matters more than bandwidth
+2. **Run from a server close to Resy's infrastructure** - Consider using a VPS in the same region
+3. **Test both sync and async modes** - Performance can vary by system and network conditions
+4. **Monitor your success rate** - If you're consistently failing, try adjusting your timing or setup
