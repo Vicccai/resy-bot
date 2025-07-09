@@ -321,13 +321,6 @@ class ResyManager:
         except Exception as e:
             logger.warning(f"Async connection pre-warming failed: {e} - continuing anyway")
 
-        # Wait for drop time
-        while datetime.now() < drop_time:
-            if datetime.now() - last_check > timedelta(seconds=10):
-                logger.info(f"{datetime.now()}: still waiting")
-                last_check = datetime.now()
-            await asyncio.sleep(0.1)
-
         # Use aiohttp for faster async requests
         timeout = aiohttp.ClientTimeout(total=10, connect=2)
         connector = aiohttp.TCPConnector(
@@ -343,24 +336,30 @@ class ResyManager:
             connector=connector,
             headers=headers
         ) as session:
+
+            # Wait for drop time
+            while datetime.now() < drop_time:
+                if datetime.now() - last_check > timedelta(seconds=10):
+                    logger.info(f"{datetime.now()}: still waiting")
+                    last_check = datetime.now()
+                await asyncio.sleep(0.001)
             
             # SINGLE ATTEMPT - NO RETRIES (async version)
             try:
-                logger.info(f"DROP TIME REACHED! Making async reservation attempt at {datetime.now()}")
-                start = time.time()
+                # logger.info(f"DROP TIME REACHED! Making async reservation attempt at {datetime.now()}")
+                # start = time.time()
                 
                 # CRITICAL FIRST REQUEST - optimized for speed
                 async with session.get(find_url, params=find_request_params) as resp:
                     resp_json = await resp.json()
-                    slots = resp_json.get("results", {}).get("venues", [{}])[0].get("slots", [])
+                    slots = resp_json["results"]["venues"][0]["slots"]
                 
-                if not slots:
-                    logger.error("No slots found - async reservation failed")
-                    raise NoSlotsError("No slots available")
+                # if not slots:
+                #     logger.error("No slots found - async reservation failed")
+                #     raise NoSlotsError("No slots available")
 
                 # Take first available slot
-                selected_slot = slots[0]
-                config_id = selected_slot["config"]["token"]
+                config_id = slots[0]["config"]["token"]
 
                 # Get booking token
                 details_params = {
@@ -385,19 +384,19 @@ class ResyManager:
                     data=body_dict,
                     headers=book_headers
                 ) as resp:
-                    end = time.time()
+                    # end = time.time()
                     
-                    if not resp.ok:
-                        error_text = await resp.text()
-                        logger.error(f"Booking failed: {resp.status}, {error_text}")
-                        raise HTTPError(f"Async booking request failed: {resp.status}")
+                    # if not resp.ok:
+                    #     error_text = await resp.text()
+                    #     logger.error(f"Booking failed: {resp.status}, {error_text}")
+                    #     raise HTTPError(f"Async booking request failed: {resp.status}")
 
                     resp_json = await resp.json()
                     resy_token = resp_json.get("resy_token")
 
                     logger.info(f"Successfully booked! Slots found: {len(slots)}")
-                    logger.info(f"Selected slot: {selected_slot}")
-                    logger.info(f"Booking took {end - start:.3f} seconds")
+                    # logger.info(f"Selected slot: {selected_slot}")
+                    # logger.info(f"Booking took {end - start:.3f} seconds")
                     logger.info(f"Resy token: {resy_token}")
 
                     return resy_token
